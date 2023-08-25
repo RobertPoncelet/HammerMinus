@@ -38,5 +38,10 @@ if __name__ == "__main__":
     if crowbar_settings.nop4:
         cmd_list.append("-nop4")
     cmd_list.append(qc_path)
+
     print(" ".join(cmd_list))
-    subprocess.run(cmd_list)
+    result = subprocess.check_output(cmd_list, text=True)
+
+    
+    if result.returncode == 0 and crowbar_settings.compile_output_dir:
+
