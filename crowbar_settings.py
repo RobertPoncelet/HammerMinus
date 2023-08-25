@@ -4,7 +4,9 @@ from xml.etree import ElementTree
 zm_path = os.path.join(os.environ["APPDATA"], "ZeqMacaw")
 is_crowbar_dir = lambda d: os.path.isdir(os.path.join(zm_path, d)) and d.startswith("Crowbar ")
 crowbar_versions = [d for d in os.listdir(zm_path) if is_crowbar_dir(d)]
-chosen_dir = os.path.join(zm_path, max(crowbar_versions))
+chosen_version = max(crowbar_versions)
+print("Using", chosen_version)
+chosen_dir = os.path.join(zm_path, chosen_version)
 
 cb_settings_tree = ElementTree.parse(os.path.join(chosen_dir, "Crowbar Settings.xml"))
 game_setups = cb_settings_tree.getroot().find("GameSetups")
