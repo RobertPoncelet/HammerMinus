@@ -9,14 +9,19 @@ print("Using", chosen_version)
 chosen_dir = os.path.join(zm_path, chosen_version)
 
 cb_settings_tree = ElementTree.parse(os.path.join(chosen_dir, "Crowbar Settings.xml"))
-game_setups = cb_settings_tree.getroot().find("GameSetups")
-library_paths = cb_settings_tree.getroot().find("SteamLibraryPaths")
+root = cb_settings_tree.getroot()
+game_setups = root.find("GameSetups")
+library_paths = root.find("SteamLibraryPaths")
+default_game_index = int(root.find("CompileGameSetupSelectedIndex").text)
+nop4 = root.find("CompileOptionNoP4IsChecked").text.lower() == "true"
 
 library_path_macros = {}
 for lib_path in library_paths:
     search = lib_path.find("Macro").text
     replace = lib_path.find("LibraryPath").text
     library_path_macros[search] = replace
+
+DEFAULT_GAME = object()
 
 
 def apply_macros(path):
@@ -27,8 +32,11 @@ def apply_macros(path):
     return path
 
 
-def get_game_setup(game_name):
-    setup_element = next(e for e in game_setups if e.find("GameName").text == game_name)
+def get_game_setup(game_name=DEFAULT_GAME):
+    if game_name is DEFAULT_GAME:
+        setup_element = game_setups[default_game_index]
+    else:
+        setup_element = next(e for e in game_setups if e.find("GameName").text == game_name)
     if not setup_element:
-        raise KeyError("Couldn't find settings for \"{}\"".format(game_name))
+        raise KeyError('Couldn\'t find settings for "{}"'.format(game_name))
     return {e.tag: apply_macros(e.text) for e in setup_element}
