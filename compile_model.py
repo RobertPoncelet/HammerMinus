@@ -1,4 +1,4 @@
-import argparse, os, subprocess
+import argparse, os, subprocess, pathlib
 from . import crowbar_settings
 
 """
@@ -8,6 +8,25 @@ TODO: add command line options to override these defaults.
 The "path" argument can be a QC file, mesh file (SMD/DMX etc.) or directory.
 If a QC is not supplied (in the path or its directory), one will be generated automatically.
 """
+
+def get_compiled_files(studiomdl_output):
+    lines = studiomdl_output.split("\n")
+    files = set()
+    for line in lines:
+        for prefix in "writing ", "Generating optimized mesh ":
+            if line.startswith(prefix):
+                path = line.lstrip(prefix)
+                path = path.lstrip("\"").rstrip("\":")
+                files.add(path)
+    return files
+
+
+def move_compiled_files(compiled_files, game_path):
+    game_path = os.path.abspath(game_path)
+    parts = pathlib.Path(game_path).parts
+    for f in compiled_files:
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -41,7 +60,9 @@ if __name__ == "__main__":
 
     print(" ".join(cmd_list))
     result = subprocess.check_output(cmd_list, text=True)
+    print(result)
 
-    
-    if result.returncode == 0 and crowbar_settings.compile_output_dir:
+    if not crowbar_settings.compile_output_dir:
+        quit()
 
+    move_compiled_files(get_compiled_files(), os.path.dirname(game_setup["GamePathFileName"]))
