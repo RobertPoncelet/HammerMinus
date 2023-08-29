@@ -9,6 +9,7 @@ The "path" argument can be a QC file, mesh file (SMD/DMX etc.) or directory.
 If a QC is not supplied (in the path or its directory), one will be generated automatically.
 """
 
+
 def get_compiled_files(studiomdl_output):
     lines = studiomdl_output.split("\n")
     files = set()
@@ -21,33 +22,44 @@ def get_compiled_files(studiomdl_output):
     return files
 
 
-def move_compiled_files(compiled_files, game_path):
+def move_compiled_files(compiled_files, game_path, destination):
+    print("Moving compiled files from {} to {}".format(game_path, destination))
     game_path = os.path.abspath(game_path)
     parts = pathlib.Path(game_path).parts
-    for f in compiled_files:
+    for input_path in compiled_files:
+        input_path_parts = pathlib.Path(os.path.abspath(input_path)).parts
+        same = 0
+        for i in range(len(parts)):
+            if input_path_parts[i] == parts[i]:
+                same += 1
+            else:
+                break
+
+        relative_path = os.path.join(*input_path_parts[same:])
+        output_path = os.path.join(destination, relative_path)
+        print("{} -> {}".format(input_path, output_path))
+
+        if os.path.exists(output_path):
+            print("OVERWRITING", output_path)
+            os.remove(output_path)
+        os.rename(input_path, output_path)
 
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("path")
-    parser.add_argument("--game", default=crowbar_settings.DEFAULT_GAME)
-    args = parser.parse_args()
-
-    if os.path.isdir(args.path):
-        qcs = [f for f in os.listdir(args.path) if f.endswith(".qc")]
+def main(path, game=crowbar_settings.DEFAULT_GAME):
+    if os.path.isdir(path):
+        qcs = [f for f in os.listdir(path) if f.endswith(".qc")]
         if len(qcs) != 1:
             raise RuntimeError("Folder does not contain exactly one QC file")
 
-        qc_path = os.path.join(args.path, qcs[0])
+        qc_path = os.path.join(path, qcs[0])
     else:
-        model_name, extension = os.path.splitext(os.path.basename(args.path))
+        model_name, extension = os.path.splitext(os.path.basename(path))
         if extension != "qc":
             raise NotImplementedError  # TODO
 
-        qc_path = args.path
+        qc_path = path
 
-    game_setup = crowbar_settings.get_game_setup(args.game)
+    game_setup = crowbar_settings.get_game_setup(game)
     print("Compiling", qc_path, "for", game_setup["GameName"])
     cmd_list = [
         game_setup["CompilerPathFileName"],
@@ -59,10 +71,27 @@ if __name__ == "__main__":
     cmd_list.append(qc_path)
 
     print(" ".join(cmd_list))
-    result = subprocess.check_output(cmd_list, text=True)
-    print(result)
+    try:
+        result = subprocess.check_output(cmd_list, text=True)
+    except subprocess.CalledProcessError:
+        pass
+    finally:
+        print(result)
 
     if not crowbar_settings.compile_output_dir:
-        quit()
+        return
 
-    move_compiled_files(get_compiled_files(), os.path.dirname(game_setup["GamePathFileName"]))
+    move_compiled_files(
+        get_compiled_files(result),
+        os.path.dirname(game_setup["GamePathFileName"]),
+        crowbar_settings.compile_output_dir,
+    )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("path")
+    parser.add_argument("--game", default=crowbar_settings.DEFAULT_GAME)
+    args = parser.parse_args()
+
+    main(args.path, args.game)
