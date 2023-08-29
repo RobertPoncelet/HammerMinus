@@ -71,12 +71,8 @@ def main(path, game=crowbar_settings.DEFAULT_GAME):
     cmd_list.append(qc_path)
 
     print(" ".join(cmd_list))
-    try:
-        result = subprocess.check_output(cmd_list, text=True)
-    except subprocess.CalledProcessError:
-        pass
-    finally:
-        print(result)
+    result = subprocess.check_output(cmd_list, text=True)
+    print(result)
 
     if not crowbar_settings.compile_output_dir:
         return
