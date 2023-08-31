@@ -1,5 +1,5 @@
 import argparse, os, subprocess, pathlib
-from . import crowbar_settings
+from . import crowbar_settings, auto_qc
 
 """
 We want to be able to compile a model as quickly and easily as possible.
@@ -45,21 +45,7 @@ def move_compiled_files(compiled_files, game_path, destination):
         os.rename(input_path, output_path)
 
 
-def main(path, game=crowbar_settings.DEFAULT_GAME):
-    if os.path.isdir(path):
-        qcs = [f for f in os.listdir(path) if f.endswith(".qc")]
-        if len(qcs) != 1:
-            raise RuntimeError("Folder does not contain exactly one QC file")
-
-        qc_path = os.path.join(path, qcs[0])
-    else:
-        model_name, extension = os.path.splitext(os.path.basename(path))
-        if extension != "qc":
-            raise NotImplementedError  # TODO
-
-        qc_path = path
-
-    game_setup = crowbar_settings.get_game_setup(game)
+def compile_qc(qc_path, game_setup):
     print("Compiling", qc_path, "for", game_setup["GameName"])
     cmd_list = [
         game_setup["CompilerPathFileName"],
@@ -71,17 +57,36 @@ def main(path, game=crowbar_settings.DEFAULT_GAME):
     cmd_list.append(qc_path)
 
     print(" ".join(cmd_list))
+    #result = subprocess.run(cmd_list)
     result = subprocess.check_output(cmd_list, text=True)
     print(result)
+    return result
 
-    if not crowbar_settings.compile_output_dir:
-        return
 
-    move_compiled_files(
-        get_compiled_files(result),
-        os.path.dirname(game_setup["GamePathFileName"]),
-        crowbar_settings.compile_output_dir,
-    )
+def main(path, game=crowbar_settings.DEFAULT_GAME):
+    game_setup = crowbar_settings.get_game_setup(game)
+
+    if os.path.isdir(path):
+        qcs = [f for f in os.listdir(path) if f.endswith(".qc")]
+        if len(qcs) != 1:
+            raise RuntimeError("Folder does not contain exactly one QC file")
+
+        qc_path = os.path.join(path, qcs[0])
+        result = compile_qc(qc_path, game_setup)
+    else:
+        model_name, extension = os.path.splitext(os.path.basename(path))
+        if extension == ".qc":
+            result = compile_qc(path, game_setup)
+        else:  # Let's assume it's a mesh file like SMD
+            with auto_qc.TemporaryQC(path) as qc_file:
+                result = compile_qc(qc_file.path, game_setup)
+
+    if crowbar_settings.compile_output_dir:
+        move_compiled_files(
+            get_compiled_files(result),
+            os.path.dirname(game_setup["GamePathFileName"]),
+            crowbar_settings.compile_output_dir,
+        )
 
 
 if __name__ == "__main__":
