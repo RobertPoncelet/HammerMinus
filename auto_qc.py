@@ -1,22 +1,39 @@
 import os, time, math, tempfile
 from mathutils import Matrix, Vector
+from . import sanitize_dmx
 
 
 class TemporaryQC:
     def __init__(self, mesh_path):
-        mesh_name, extension = os.path.splitext(os.path.basename(mesh_path))
-        qc_template = '$modelname "sire/{mesh_name}.mdl"\n$cdmaterials models/sire\n$staticprop\n$model "studio" "{mesh_name}"\n$sequence idle "{mesh_name}" loop fps 1.00\n'
-        qc_file = tempfile.NamedTemporaryFile(mode="w", dir=os.path.dirname(mesh_path), suffix=".qc", delete=False)
-        qc_file.write(qc_template.format(mesh_name=mesh_name))
-        qc_file.flush()
+        model_name, extension = os.path.splitext(os.path.basename(mesh_path))
+
+        # If it's a DMX, create a sanitized version first
+        # TODO: check whether this is actually necessary depending on studiomdl's requirements
+        if extension.lower() == ".dmx":
+            mesh_name = model_name + "_" + next(tempfile._get_candidate_names())
+            print("Sanitising DMX", mesh_path, "using temp name", mesh_name)
+            self._temp_mesh_path = os.path.join(os.path.dirname(mesh_path), mesh_name + ".dmx")
+            sanitize_dmx.external_sanitize_dmx(mesh_path, self._temp_mesh_path)
+        else:
+            mesh_name = model_name
+            self._temp_mesh_path = None
+
+        qc_template = '$modelname "sire/{model_name}.mdl"\n$cdmaterials models/sire\n$staticprop\n$model "studio" "{mesh_name}"\n$sequence idle "{mesh_name}" loop fps 1.00\n'
+        qc_file = tempfile.NamedTemporaryFile(
+            mode="w", dir=os.path.dirname(mesh_path), suffix=".qc", delete=False
+        )
+        qc_file.write(qc_template.format(model_name=model_name, mesh_name=mesh_name))
         qc_file.close()
+        print("Creating temporary QC file", qc_file.name)
         self.path = qc_file.name
 
     def __enter__(self):
         return self
-    
+
     def __exit__(self, exc_type, exc_value, traceback):
         os.remove(self.path)
+        if self._temp_mesh_path:
+            os.remove(self._temp_mesh_path)
 
 
 # The following code is adapted from Blender Source Tools

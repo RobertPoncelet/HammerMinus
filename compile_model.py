@@ -75,7 +75,7 @@ def main(path, game=crowbar_settings.DEFAULT_GAME):
         result = compile_qc(qc_path, game_setup)
     else:
         model_name, extension = os.path.splitext(os.path.basename(path))
-        if extension == ".qc":
+        if extension.lower() == ".qc":
             result = compile_qc(path, game_setup)
         else:  # Let's assume it's a mesh file like SMD
             with auto_qc.TemporaryQC(path) as qc_file:

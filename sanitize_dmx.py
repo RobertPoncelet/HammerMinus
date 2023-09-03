@@ -1,7 +1,24 @@
-import argparse, os, sys
+import argparse, os, sys, subprocess
+
+def external_sanitize_dmx(input_path, output_path, engine_path=None):
+    cmd_list = [
+        "blender",
+        "-b",  # background
+        "--python-use-system-env",
+        "--enable-autoexec",
+        "--python",
+        __file__,
+        "--",
+        input_path,
+        output_path
+    ]
+    if engine_path:
+        cmd_list.append("--engine_path")
+        cmd_list.append(engine_path)
+    subprocess.run(cmd_list)
 
 
-def blender_sanitize_dmx(input_path, output_path, engine_path=None):
+def main(input_path, output_path, engine_path=None):
     import bpy
 
     if not hasattr(bpy.ops.export_scene, "smd"):
@@ -45,4 +62,4 @@ if __name__ == "__main__":
     parser.add_argument("--engine_path")
     args = parser.parse_args(argv)
 
-    blender_sanitize_dmx(args.input_path, args.output_path, args.engine_path)
+    main(args.input_path, args.output_path, args.engine_path)
