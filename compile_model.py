@@ -1,6 +1,7 @@
 import argparse, os, subprocess, pathlib
 from . import crowbar_settings
 from .auto_qc import CompileInputs
+from .convert_materials import convert_all_materials
 
 """
 We want to be able to compile a model as quickly and easily as possible.
@@ -91,7 +92,7 @@ def compile_model(inputs: CompileInputs, game_setup: dict):
     return get_compiled_files(output)
 
 
-def main(path: str, game=crowbar_settings.DEFAULT_GAME):
+def main(path: str, game=crowbar_settings.DEFAULT_GAME, do_convert_materials=False):
     game_setup = crowbar_settings.get_game_setup(game)
 
     compile_inputs = find_compile_inputs_from_path(path)
@@ -105,11 +106,15 @@ def main(path: str, game=crowbar_settings.DEFAULT_GAME):
             crowbar_settings.compile_output_dir,
         )
 
+    if do_convert_materials:
+        convert_all_materials(compile_inputs, game, crowbar_settings.compile_output_dir)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path")
     parser.add_argument("--game", default=crowbar_settings.DEFAULT_GAME)
+    parser.add_argument('--convert-materials', action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
 
-    main(args.path, args.game)
+    main(args.path, args.game, args.convert_materials)

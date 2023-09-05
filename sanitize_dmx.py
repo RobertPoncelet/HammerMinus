@@ -40,6 +40,7 @@ def main(input_path: str, output_path: str, engine_path: str = None):
     bpy.context.scene.vs.dmx_encoding = "2"
     bpy.context.scene.vs.dmx_format = "1"
     bpy.context.scene.vs.export_path = os.path.dirname(output_path)
+    bpy.context.scene.vs.material_path = ""
     bpy.ops.export_scene.smd(export_scene=True)
 
     #bpy.ops.wm.quit_blender()
