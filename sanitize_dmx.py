@@ -7,6 +7,8 @@ def external_sanitize_dmx(input_path: str, output_path: str, engine_path: str = 
         "-b",  # background
         "--python-use-system-env",
         "--enable-autoexec",
+        "--python-exit-code",
+        "255",
         "--python",
         __file__,
         "--",
@@ -24,7 +26,6 @@ def main(input_path: str, output_path: str, engine_path: str = None):
 
     if not hasattr(bpy.ops.export_scene, "smd"):
         raise RuntimeError("DMX export not available; is the Blender Source Tools addon installed?")
-    import io_scene_valvesource
 
     # bpy.ops.wm.read_factory_settings(use_empty=True)
 
@@ -38,15 +39,8 @@ def main(input_path: str, output_path: str, engine_path: str = None):
     bpy.context.scene.vs.export_format = "DMX"
     bpy.context.scene.vs.dmx_encoding = "2"
     bpy.context.scene.vs.dmx_format = "1"
-    if engine_path:
-        bpy.context.scene.vs.engine_path = os.path.dirname(engine_path)
-    else:
-        # TODO: is this needed?
-        io_scene_valvesource.utils._StateMeta._engineBranch = (
-            io_scene_valvesource.utils.dmx_versions_source1["Source2009"]
-        )
     bpy.context.scene.vs.export_path = os.path.dirname(output_path)
-    bpy.ops.export_scene.smd()
+    bpy.ops.export_scene.smd(export_scene=True)
 
     #bpy.ops.wm.quit_blender()
 

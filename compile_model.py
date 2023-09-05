@@ -18,7 +18,7 @@ def get_compiled_files(studiomdl_output: str):
         for prefix in "writing ", "Generating optimized mesh ":
             if line.startswith(prefix):
                 path = line.lstrip(prefix)
-                path = path.lstrip("\"").rstrip("\":")
+                path = path.lstrip("\"").rstrip("\":\r")
                 files.add(path)
     return files
 
@@ -83,7 +83,7 @@ def compile_model(inputs: CompileInputs, game_setup: dict):
         cmd_list.append(qc_path)
 
         print(" ".join(cmd_list))
-        result = subprocess.run(cmd_list)
+        result = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         result.check_returncode()
         output = result.stdout.decode()
 

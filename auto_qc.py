@@ -20,8 +20,8 @@ class CompileInputs:
     def from_mesh_file(cls, path):
         mesh_name, extension = os.path.splitext(os.path.basename(path))
 
-        user = os.environ["USERNAME"].lower()  # TODO: a more sensible default
-        model_path = "{}/{}.mdl".format(user, mesh_name)
+        user = os.environ["USERNAME"].lower()
+        model_path = "{}/{}.mdl".format(user, mesh_name)  # TODO: a more sensible default
         cdmaterials = "models/{}".format(user)
 
         # If it's a DMX, create a sanitized version first
@@ -60,17 +60,18 @@ class TemporaryButActuallyNotTemporaryFile:
 class TemporarySanitisedDMX:
     def __init__(self, input_path):
         self._input_path = input_path
+        self._output_path = None
 
     def __enter__(self):
         mesh_name, extension = os.path.splitext(os.path.basename(self._input_path))
         mesh_name = mesh_name + "_" + next(tempfile._get_candidate_names())
         print("Sanitising DMX", self._input_path, "using temp name", mesh_name)
-        output_path = os.path.join(os.path.dirname(self._input_path), mesh_name + ".dmx")
-        sanitize_dmx.external_sanitize_dmx(self._input_path, output_path)
-        return output_path
+        self._output_path = os.path.join(os.path.dirname(self._input_path), mesh_name + ".dmx")
+        sanitize_dmx.external_sanitize_dmx(self._input_path, self._output_path)
+        return self._output_path
 
     def __exit__(self, exc_type, exc_value, traceback):
-        os.remove(self.path)
+        os.remove(self._output_path)
 
 
 class TemporaryQCFile:
