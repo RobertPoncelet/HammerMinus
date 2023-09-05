@@ -21,7 +21,7 @@ for lib_path in library_paths:
 
 DEFAULT_GAME = object()
 
-def text_setting(name):
+def text_setting(name: str):
     return root.find(name).text
 
 # Compile options
@@ -33,11 +33,11 @@ else:
     compile_output_dir = None
 
 
-def element_to_dict(element):
+def element_to_dict(element: ElementTree.Element):
     return {e.tag: e.text for e in element}
 
 
-def apply_macros(path):
+def apply_macros(path: str):
     if not path:
         return path
     for search, replace in library_path_macros.items():

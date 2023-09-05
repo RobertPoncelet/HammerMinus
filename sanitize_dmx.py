@@ -1,6 +1,7 @@
 import argparse, os, sys, subprocess
 
-def external_sanitize_dmx(input_path, output_path, engine_path=None):
+
+def external_sanitize_dmx(input_path: str, output_path: str, engine_path: str = None):
     cmd_list = [
         "blender",
         "-b",  # background
@@ -10,15 +11,15 @@ def external_sanitize_dmx(input_path, output_path, engine_path=None):
         __file__,
         "--",
         input_path,
-        output_path
+        output_path,
     ]
     if engine_path:
         cmd_list.append("--engine_path")
         cmd_list.append(engine_path)
-    subprocess.run(cmd_list)
+    subprocess.run(cmd_list).check_returncode()
 
 
-def main(input_path, output_path, engine_path=None):
+def main(input_path: str, output_path: str, engine_path: str = None):
     import bpy
 
     if not hasattr(bpy.ops.export_scene, "smd"):
@@ -47,7 +48,7 @@ def main(input_path, output_path, engine_path=None):
     bpy.context.scene.vs.export_path = os.path.dirname(output_path)
     bpy.ops.export_scene.smd()
 
-    bpy.ops.wm.quit_blender()
+    #bpy.ops.wm.quit_blender()
 
 
 # from hammer_minus import sanitize_dmx; sanitize_dmx.blender_sanitize_dmx(r"F:\Google Drive\sourceModelCompilation\juncture_s2_test\airport_test_dmx.dmx", r"F:\Google Drive\sourceModelCompilation\juncture_s2_test\fuck.dmx")

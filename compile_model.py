@@ -1,5 +1,6 @@
 import argparse, os, subprocess, pathlib
-from . import crowbar_settings, auto_qc
+from . import crowbar_settings
+from .auto_qc import CompileInputs
 
 """
 We want to be able to compile a model as quickly and easily as possible.
@@ -10,7 +11,7 @@ If a QC is not supplied (in the path or its directory), one will be generated au
 """
 
 
-def get_compiled_files(studiomdl_output):
+def get_compiled_files(studiomdl_output: str):
     lines = studiomdl_output.split("\n")
     files = set()
     for line in lines:
@@ -22,7 +23,7 @@ def get_compiled_files(studiomdl_output):
     return files
 
 
-def move_compiled_files(compiled_files, game_path, destination):
+def move_compiled_files(compiled_files: set[str], game_path: str, destination: str):
     print("Moving compiled files from {} to {}".format(game_path, destination))
     game_path = os.path.abspath(game_path)
     parts = pathlib.Path(game_path).parts
@@ -45,45 +46,61 @@ def move_compiled_files(compiled_files, game_path, destination):
         os.rename(input_path, output_path)
 
 
-def compile_qc(qc_path, game_setup):
-    print("Compiling", qc_path, "for", game_setup["GameName"])
-    cmd_list = [
-        game_setup["CompilerPathFileName"],
-        "-game",
-        os.path.dirname(game_setup["GamePathFileName"]),
-    ]
-    if crowbar_settings.nop4:
-        cmd_list.append("-nop4")
-    cmd_list.append(qc_path)
+def find_compile_inputs_from_path(path):
+    if os.path.isdir(path):
+        qcs = [f for f in os.listdir(path) if f.lower().endswith(".qc")]
+        meshes = [
+            f for f in os.listdir(path) if f.lower().endswith(".smd") or f.lower().endswith(".dmx")
+        ]
+        if len(qcs) > 1:
+            raise RuntimeError("Folder does not contain exactly one QC file")
+        elif len(qcs) == 1:
+            compile_inputs = CompileInputs.from_qc_file(qcs[0])
+        elif len(meshes) > 1:
+            raise RuntimeError("Folder contains more than one mesh")
+        else:
+            compile_inputs = CompileInputs.from_mesh_file(meshes[0])
+    else:
+        filename, extension = os.path.splitext(os.path.basename(path))
+        if extension.lower() == ".qc":
+            compile_inputs = CompileInputs.from_qc_file(path)
+        else:  # Let's assume it's a mesh file like SMD
+            compile_inputs = CompileInputs.from_mesh_file(path)
+    return compile_inputs
 
-    print(" ".join(cmd_list))
-    #result = subprocess.run(cmd_list)
-    result = subprocess.check_output(cmd_list, text=True)
-    print(result)
-    return result
+
+def compile_model(inputs: CompileInputs, game_setup: dict):
+    print("Compiling", inputs.model_name, "for", game_setup["GameName"])
+
+    with inputs.get_qc() as qc_path:
+        cmd_list = [
+            game_setup["CompilerPathFileName"],
+            "-game",
+            os.path.dirname(game_setup["GamePathFileName"]),
+        ]
+        if crowbar_settings.nop4:
+            cmd_list.append("-nop4")
+        cmd_list.append(qc_path)
+
+        print(" ".join(cmd_list))
+        result = subprocess.run(cmd_list)
+        result.check_returncode()
+        output = result.stdout.decode()
+
+    print(output)
+    return get_compiled_files(output)
 
 
-def main(path, game=crowbar_settings.DEFAULT_GAME):
+def main(path: str, game=crowbar_settings.DEFAULT_GAME):
     game_setup = crowbar_settings.get_game_setup(game)
 
-    if os.path.isdir(path):
-        qcs = [f for f in os.listdir(path) if f.endswith(".qc")]
-        if len(qcs) != 1:
-            raise RuntimeError("Folder does not contain exactly one QC file")
+    compile_inputs = find_compile_inputs_from_path(path)
 
-        qc_path = os.path.join(path, qcs[0])
-        result = compile_qc(qc_path, game_setup)
-    else:
-        model_name, extension = os.path.splitext(os.path.basename(path))
-        if extension.lower() == ".qc":
-            result = compile_qc(path, game_setup)
-        else:  # Let's assume it's a mesh file like SMD
-            with auto_qc.TemporaryQC(path) as qc_file:
-                result = compile_qc(qc_file.path, game_setup)
+    compiled_files = compile_model(compile_inputs, game_setup)
 
     if crowbar_settings.compile_output_dir:
         move_compiled_files(
-            get_compiled_files(result),
+            compiled_files,
             os.path.dirname(game_setup["GamePathFileName"]),
             crowbar_settings.compile_output_dir,
         )
