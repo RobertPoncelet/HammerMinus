@@ -12,6 +12,8 @@ class CompileInputs:
 
     _pre_existing_qc: str or None = None
 
+    _temp_meshes: list[TemporarySanitisedDMX]
+
     @classmethod
     def from_qc_file(cls, path):
         raise NotImplementedError("QC parsing not implemented yet")
@@ -20,25 +22,28 @@ class CompileInputs:
     def from_mesh_file(cls, path):
         mesh_name, extension = os.path.splitext(os.path.basename(path))
 
+        # TODO: more sensible defaults
         user = os.environ["USERNAME"].lower()
-        model_path = "{}/{}.mdl".format(user, mesh_name)  # TODO: a more sensible default
-        cdmaterials = "models/{}".format(user)
+        model_path = "{}/{}.mdl".format(user, mesh_name)
+        cdmaterials = "models/{}/autoqc".format(user)
 
         # If it's a DMX, create a sanitized version first
         # TODO: check whether this is actually necessary depending on studiomdl's requirements
         if extension.lower() == ".dmx":
-            mesh_path = TemporarySanitisedDMX(path)
+            temp_meshes = [TemporarySanitisedDMX(path)]
+            mesh_paths = []
         else:
-            mesh_path = path
+            temp_meshes = []
+            mesh_paths = [path]
 
-        return cls(model_path, [mesh_path], cdmaterials)
+        return cls(model_path, mesh_paths, cdmaterials, _temp_meshes=temp_meshes)
 
     @property
     def model_name(self):
         return os.path.splitext(os.path.basename(self.model_path))[0]
 
     # Returns a context manager, not the path itself
-    def get_qc(self):
+    def get_qc_with_dependencies(self):
         if self._pre_existing_qc:
             return TemporaryButActuallyNotTemporaryFile(self._pre_existing_qc)
         else:
@@ -60,13 +65,12 @@ class TemporaryButActuallyNotTemporaryFile:
 class TemporarySanitisedDMX:
     def __init__(self, input_path):
         self._input_path = input_path
-        self._output_path = None
-
-    def __enter__(self):
         mesh_name, extension = os.path.splitext(os.path.basename(self._input_path))
         mesh_name = mesh_name + "_" + next(tempfile._get_candidate_names())
-        print("Sanitising DMX", self._input_path, "using temp name", mesh_name)
         self._output_path = os.path.join(os.path.dirname(self._input_path), mesh_name + ".dmx")
+
+    def __enter__(self):
+        print("Sanitising DMX", self._input_path, "using temp path", self._output_path)
         sanitize_dmx.external_sanitize_dmx(self._input_path, self._output_path)
         return self._output_path
 
@@ -80,10 +84,13 @@ class TemporaryQCFile:
         self._path = None
 
     def __enter__(self):
-        mesh_path = self._compile_inputs.mesh_paths[0]  # TODO: support multiple meshes
-        # TODO: this sucks shit, find a different way
-        if isinstance(mesh_path, TemporarySanitisedDMX):
-            mesh_path = mesh_path.__enter__()
+        # TODO: support multiple meshes
+        if self._compile_inputs._temp_meshes:
+            mesh_path = self._compile_inputs._temp_meshes[0].__enter__()
+            self._compile_inputs.mesh_paths.append(mesh_path)
+        else:
+            mesh_path = self._compile_inputs.mesh_paths[0]
+
         mesh_name, _ = os.path.splitext(os.path.basename(mesh_path))
 
         qc_template = '$modelname "{model_path}"\n$cdmaterials {cdmaterials}\n$staticprop\n$model "studio" "{mesh_name}"\n$sequence idle "{mesh_name}" loop fps 1.00\n'
@@ -105,9 +112,8 @@ class TemporaryQCFile:
 
     def __exit__(self, exc_type, exc_value, traceback):
         os.remove(self._path)
-        # TODO: this sucks shit, find a different way
-        if isinstance(self._compile_inputs.mesh_paths[0], TemporarySanitisedDMX):
-            self._compile_inputs.mesh_paths[0].__exit__(None, None, None)
+        for temp_mesh in self._compile_inputs._temp_meshes:
+            temp_mesh.__exit__(None, None, None)
 
 
 # The following code is adapted from Blender Source Tools

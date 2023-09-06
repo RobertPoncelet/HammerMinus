@@ -54,11 +54,11 @@ def find_compile_inputs_from_path(path):
             f for f in os.listdir(path) if f.lower().endswith(".smd") or f.lower().endswith(".dmx")
         ]
         if len(qcs) > 1:
-            raise RuntimeError("Folder does not contain exactly one QC file")
+            raise FileExistsError("Folder contains more than one QC file")
         elif len(qcs) == 1:
             compile_inputs = CompileInputs.from_qc_file(qcs[0])
         elif len(meshes) > 1:
-            raise RuntimeError("Folder contains more than one mesh")
+            raise FileExistsError("Folder contains more than one mesh")
         else:
             compile_inputs = CompileInputs.from_mesh_file(meshes[0])
     else:
@@ -70,23 +70,20 @@ def find_compile_inputs_from_path(path):
     return compile_inputs
 
 
-def compile_model(inputs: CompileInputs, game_setup: dict):
-    print("Compiling", inputs.model_name, "for", game_setup["GameName"])
+def compile_qc(qc_path: str, game_setup: dict):
+    cmd_list = [
+        game_setup["CompilerPathFileName"],
+        "-game",
+        os.path.dirname(game_setup["GamePathFileName"]),
+    ]
+    if crowbar_settings.nop4:
+        cmd_list.append("-nop4")
+    cmd_list.append(qc_path)
 
-    with inputs.get_qc() as qc_path:
-        cmd_list = [
-            game_setup["CompilerPathFileName"],
-            "-game",
-            os.path.dirname(game_setup["GamePathFileName"]),
-        ]
-        if crowbar_settings.nop4:
-            cmd_list.append("-nop4")
-        cmd_list.append(qc_path)
-
-        print(" ".join(cmd_list))
-        result = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        result.check_returncode()
-        output = result.stdout.decode()
+    print(" ".join(cmd_list))
+    result = subprocess.run(cmd_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    result.check_returncode()
+    output = result.stdout.decode()
 
     print(output)
     return get_compiled_files(output)
@@ -97,17 +94,19 @@ def main(path: str, game=crowbar_settings.DEFAULT_GAME, do_convert_materials=Fal
 
     compile_inputs = find_compile_inputs_from_path(path)
 
-    compiled_files = compile_model(compile_inputs, game_setup)
+    print("Compiling", compile_inputs.model_name, "for", game_setup["GameName"])
+    with compile_inputs.get_qc_with_dependencies() as qc_path:
+        compiled_files = compile_qc(qc_path, game_setup)
 
-    if crowbar_settings.compile_output_dir:
-        move_compiled_files(
-            compiled_files,
-            os.path.dirname(game_setup["GamePathFileName"]),
-            crowbar_settings.compile_output_dir,
-        )
+        if crowbar_settings.compile_output_dir:
+            move_compiled_files(
+                compiled_files,
+                os.path.dirname(game_setup["GamePathFileName"]),
+                crowbar_settings.compile_output_dir,
+            )
 
-    if do_convert_materials:
-        convert_all_materials(compile_inputs, game, crowbar_settings.compile_output_dir)
+        if do_convert_materials:
+            convert_all_materials(compile_inputs, game, crowbar_settings.compile_output_dir)
 
 
 if __name__ == "__main__":
