@@ -10,16 +10,16 @@ class CompileInputs:
     mesh_paths: list[str]
     cdmaterials: str
 
+    _temp_meshes: list
+
     _pre_existing_qc: str or None = None
 
-    _temp_meshes: list[TemporarySanitisedDMX]
-
     @classmethod
-    def from_qc_file(cls, path):
+    def from_qc_file(cls, path: str):
         raise NotImplementedError("QC parsing not implemented yet")
 
     @classmethod
-    def from_mesh_file(cls, path):
+    def from_mesh_file(cls, path: str):
         mesh_name, extension = os.path.splitext(os.path.basename(path))
 
         # TODO: more sensible defaults
@@ -63,15 +63,18 @@ class TemporaryButActuallyNotTemporaryFile:
 
 
 class TemporarySanitisedDMX:
-    def __init__(self, input_path):
+    def __init__(self, input_path: str, clear_material_path: bool = True):
         self._input_path = input_path
+        self._clear_material_path = clear_material_path
         mesh_name, extension = os.path.splitext(os.path.basename(self._input_path))
         mesh_name = mesh_name + "_" + next(tempfile._get_candidate_names())
         self._output_path = os.path.join(os.path.dirname(self._input_path), mesh_name + ".dmx")
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         print("Sanitising DMX", self._input_path, "using temp path", self._output_path)
-        sanitize_dmx.external_sanitize_dmx(self._input_path, self._output_path)
+        sanitize_dmx.external_sanitize_dmx(
+            self._input_path, self._output_path, clear_material_path=self._clear_material_path
+        )
         return self._output_path
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -83,7 +86,7 @@ class TemporaryQCFile:
         self._compile_inputs = compile_inputs
         self._path = None
 
-    def __enter__(self):
+    def __enter__(self) -> str:
         # TODO: support multiple meshes
         if self._compile_inputs._temp_meshes:
             mesh_path = self._compile_inputs._temp_meshes[0].__enter__()

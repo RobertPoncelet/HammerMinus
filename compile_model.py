@@ -12,7 +12,7 @@ If a QC is not supplied (in the path or its directory), one will be generated au
 """
 
 
-def get_compiled_files(studiomdl_output: str):
+def get_compiled_files(studiomdl_output: str) -> set[str]:
     lines = studiomdl_output.split("\n")
     files = set()
     for line in lines:
@@ -47,7 +47,7 @@ def move_compiled_files(compiled_files: set[str], game_path: str, destination: s
         os.rename(input_path, output_path)
 
 
-def find_compile_inputs_from_path(path):
+def find_compile_inputs_from_path(path: str) -> CompileInputs:
     if os.path.isdir(path):
         qcs = [f for f in os.listdir(path) if f.lower().endswith(".qc")]
         meshes = [
@@ -70,7 +70,7 @@ def find_compile_inputs_from_path(path):
     return compile_inputs
 
 
-def compile_qc(qc_path: str, game_setup: dict):
+def compile_qc(qc_path: str, game_setup: dict) -> set[str]:
     cmd_list = [
         game_setup["CompilerPathFileName"],
         "-game",
@@ -89,7 +89,16 @@ def compile_qc(qc_path: str, game_setup: dict):
     return get_compiled_files(output)
 
 
-def main(path: str, game=crowbar_settings.DEFAULT_GAME, do_convert_materials=False):
+def main(
+    path: str,
+    game=crowbar_settings.DEFAULT_GAME,
+    addon_path: str = None,
+    do_convert_materials: bool = False,
+):
+    addon_path = addon_path or crowbar_settings.compile_output_dir
+    if addon_path and not os.path.isdir(addon_path):
+        raise ValueError("Addon path", addon_path, "does not exist")
+
     game_setup = crowbar_settings.get_game_setup(game)
 
     compile_inputs = find_compile_inputs_from_path(path)
@@ -98,22 +107,23 @@ def main(path: str, game=crowbar_settings.DEFAULT_GAME, do_convert_materials=Fal
     with compile_inputs.get_qc_with_dependencies() as qc_path:
         compiled_files = compile_qc(qc_path, game_setup)
 
-        if crowbar_settings.compile_output_dir:
+        if addon_path:
             move_compiled_files(
                 compiled_files,
                 os.path.dirname(game_setup["GamePathFileName"]),
-                crowbar_settings.compile_output_dir,
+                addon_path,
             )
 
         if do_convert_materials:
-            convert_all_materials(compile_inputs, game, crowbar_settings.compile_output_dir)
+            convert_all_materials(compile_inputs, path, game, addon_path)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("path")
     parser.add_argument("--game", default=crowbar_settings.DEFAULT_GAME)
-    parser.add_argument('--convert-materials', action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument("--addon-path", default=None)
+    parser.add_argument('--convert-materials', action=argparse.BooleanOptionalAction, default=False)
     args = parser.parse_args()
 
-    main(args.path, args.game, args.convert_materials)
+    main(args.path, args.game, args.addon_path, args.convert_materials)

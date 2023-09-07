@@ -1,7 +1,9 @@
 import argparse, os, sys, subprocess
 
 
-def external_sanitize_dmx(input_path: str, output_path: str, engine_path: str = None):
+def external_sanitize_dmx(
+    input_path: str, output_path: str, engine_path: str = None, clear_material_path: bool = True
+):
     cmd_list = [
         "blender",
         "-b",  # background
@@ -16,18 +18,20 @@ def external_sanitize_dmx(input_path: str, output_path: str, engine_path: str = 
         output_path,
     ]
     if engine_path:
-        cmd_list.append("--engine_path")
+        cmd_list.append("--engine-path")
         cmd_list.append(engine_path)
+    if not clear_material_path:
+        cmd_list.append("--no-clear-material-path")
     subprocess.run(cmd_list).check_returncode()
 
 
-def main(input_path: str, output_path: str, engine_path: str = None):
+def main(
+    input_path: str, output_path: str, engine_path: str = None, clear_material_path: bool = True
+):
     import bpy
 
-    if not hasattr(bpy.ops.export_scene, "smd"):
+    if not hasattr(bpy.ops.import_scene, "smd"):
         raise RuntimeError("DMX export not available; is the Blender Source Tools addon installed?")
-
-    # bpy.ops.wm.read_factory_settings(use_empty=True)
 
     bpy.ops.import_scene.smd(filepath=input_path)
 
@@ -40,13 +44,12 @@ def main(input_path: str, output_path: str, engine_path: str = None):
     bpy.context.scene.vs.dmx_encoding = "2"
     bpy.context.scene.vs.dmx_format = "1"
     bpy.context.scene.vs.export_path = os.path.dirname(output_path)
-    bpy.context.scene.vs.material_path = ""
+    if clear_material_path:
+        bpy.context.scene.vs.material_path = ""
     bpy.ops.export_scene.smd(export_scene=True)
 
-    #bpy.ops.wm.quit_blender()
+    # bpy.ops.wm.quit_blender()
 
-
-# from hammer_minus import sanitize_dmx; sanitize_dmx.blender_sanitize_dmx(r"F:\Google Drive\sourceModelCompilation\juncture_s2_test\airport_test_dmx.dmx", r"F:\Google Drive\sourceModelCompilation\juncture_s2_test\fuck.dmx")
 
 if __name__ == "__main__":
     argv = sys.argv
@@ -55,7 +58,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("input_path")
     parser.add_argument("output_path")
-    parser.add_argument("--engine_path")
+    parser.add_argument("--engine-path")
+    parser.add_argument(
+        "--clear-material-path", action=argparse.BooleanOptionalAction, default=True
+    )
     args = parser.parse_args(argv)
+    print("ARGS:", args.__dict__)
 
-    main(args.input_path, args.output_path, args.engine_path)
+    main(
+        args.input_path,
+        args.output_path,
+        args.engine_path,
+        clear_material_path=args.clear_material_path,
+    )
