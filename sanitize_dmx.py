@@ -63,7 +63,6 @@ if __name__ == "__main__":
         "--clear-material-path", action=argparse.BooleanOptionalAction, default=True
     )
     args = parser.parse_args(argv)
-    print("ARGS:", args.__dict__)
 
     main(
         args.input_path,

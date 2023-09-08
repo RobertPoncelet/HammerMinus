@@ -99,6 +99,11 @@ def main(
     if addon_path and not os.path.isdir(addon_path):
         raise ValueError("Addon path", addon_path, "does not exist")
 
+    if do_convert_materials:
+        filename, extension = os.path.splitext(path)
+        if extension != ".dmx":
+            raise ValueError("Converting materials for non-DMX meshes is currently unsupported")
+
     game_setup = crowbar_settings.get_game_setup(game)
 
     compile_inputs = find_compile_inputs_from_path(path)
@@ -115,11 +120,12 @@ def main(
             )
 
         if do_convert_materials:
-            convert_all_materials(compile_inputs, path, game, addon_path)
+            convert_all_materials(compile_inputs, path, game)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    # TODO: add help to arguments
     parser.add_argument("path")
     parser.add_argument("--game", default=crowbar_settings.DEFAULT_GAME)
     parser.add_argument("--addon-path", default=None)

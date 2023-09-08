@@ -3,6 +3,7 @@ from srctools.game import Game
 from srctools.filesys import FileSystemChain
 from srctools.mdl import Model
 from srctools.dmx import Element
+from srctools.vmt import Material
 from . import crowbar_settings
 from .auto_qc import CompileInputs, TemporarySanitisedDMX
 
@@ -16,8 +17,10 @@ def get_game_filesystem(game: str) -> FileSystemChain:
 def filesystem_contains_material(filesystem, model: Model, mat_name: str) -> bool:
     for mat_dir in model.cdmaterials:
         mat_dir = mat_dir.lstrip("/").rstrip("/")
-        mat_path = "/".join(["materials", mat_dir, mat_name + ".vmt"])
-        print("Looking for", mat_path)
+        if mat_dir:
+            mat_path = "/".join(["materials", mat_dir, mat_name + ".vmt"])
+        else:
+            mat_path = "/".join(["materials", mat_name + ".vmt"])
         if mat_path in filesystem:
             print("Found", mat_path)
             return True
@@ -51,12 +54,40 @@ def convert_all_materials(
     filesystem = get_game_filesystem(game)
     model = Model(filesystem, filesystem["models/" + compile_inputs.model_path])
 
-    with TemporarySanitisedDMX(orig_mesh_path, clear_material_path=False) as clean_orig_mesh_path:
-        original_mats = get_original_mat_paths(clean_orig_mesh_path)
-    print("Original materials: ", original_mats)
+    original_mats = None
 
-    for mat_name in set(itertools.chain(*model.skins)):
+    output_dir = addon_path or os.path.dirname(
+        crowbar_settings.get_game_setup(game)["GamePathFileName"]
+    )
+
+    mat_names = set(itertools.chain(*model.skins))
+    for mat_name in mat_names:
         if not filesystem_contains_material(filesystem, model, mat_name):
-            print("Couldn't find", mat_name)
-            print(compile_inputs.model_path, "vs.", model.name)
-            print(compile_inputs.cdmaterials, "vs.", model.cdmaterials)
+            print("Couldn't find", mat_name, "- attempting to replace it")
+            if original_mats is None:
+                with TemporarySanitisedDMX(orig_mesh_path, clear_material_path=False) as clean_orig_mesh_path:
+                    original_mats = get_original_mat_paths(clean_orig_mesh_path)
+            try:
+                parent_mat_path = next(
+                    m for m in original_mats if os.path.splitext(os.path.basename(m))[0] == mat_name
+                )
+            except StopIteration:
+                print("Couldn't find a parent material to copy from :(")
+                continue
+
+            parent_file = filesystem[parent_mat_path.replace(".vmat", ".vmt")]
+            parent_file_contents = parent_file.open_str().read()
+            new_mat = Material.parse(parent_file_contents)
+            if new_mat.shader.lower() == "lightmappedgeneric":
+                new_mat.shader = "VertexLitGeneric"
+            else:
+                print("Shader is", new_mat.shader)
+            output_path = os.path.join(
+                output_dir, "materials", compile_inputs.cdmaterials, mat_name + ".vmt"
+            )
+
+            print("Writing new material", output_path)
+            if not os.path.isdir(os.path.dirname(output_path)):
+                os.makedirs(os.path.dirname(output_path))
+            with open(output_path, "w") as f:
+                new_mat.export(f)
