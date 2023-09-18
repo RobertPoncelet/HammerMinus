@@ -41,7 +41,9 @@ def move_compiled_files(compiled_files: set[str], game_path: str, destination: s
         output_path = os.path.join(destination, relative_path)
         print("{} -> {}".format(input_path, output_path))
 
-        if os.path.exists(output_path):
+        if not os.path.isdir(os.path.dirname(output_path)):
+            os.makedirs(os.path.dirname(output_path))
+        elif os.path.exists(output_path):
             print("OVERWRITING", output_path)
             os.remove(output_path)
         os.rename(input_path, output_path)
