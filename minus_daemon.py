@@ -40,7 +40,11 @@ class FileWatcher:
 def main(path, game, addon_path=None, start_mapping_tool=True):
     if start_mapping_tool:
         game_setup = crowbar_settings.get_game_setup(game)
-        subprocess.Popen([game_setup["MappingToolPathFileName"]], close_fds=True)
+        hammer_path = game_setup.get("MappingToolPathFileName")
+        if hammer_path and os.path.isfile(hammer_path):
+            subprocess.Popen([hammer_path], close_fds=True)
+        else:
+            print("Unable to start the mapping tool", hammer_path, "- please check it exists")
 
     def on_new_file(file_path):
         if os.path.splitext(file_path)[-1] == ".dmx":
