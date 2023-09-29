@@ -47,8 +47,10 @@ def main(path, game, addon_path=None, start_mapping_tool=True):
             print("Unable to start the mapping tool", hammer_path, "- please check it exists")
 
     def on_new_file(file_path):
-        if os.path.splitext(file_path)[-1] == ".dmx":
+        if os.path.splitext(file_path)[-1].lower() == ".dmx":
             compile_model.main(file_path, game, addon_path, do_convert_materials=True)
+        elif os.path.splitext(file_path)[-1].lower() == ".smd":
+            compile_model.main(file_path, game, addon_path)
 
     boy_watcher = FileWatcher(path, on_new_file)
     boy_watcher.start()

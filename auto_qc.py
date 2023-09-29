@@ -10,13 +10,57 @@ class CompileInputs:
     mesh_paths: list[str]
     cdmaterials: str
 
-    _temp_meshes: list
+    _temp_meshes: list = list
 
     _pre_existing_qc: str or None = None
 
     @classmethod
     def from_qc_file(cls, path: str):
-        raise NotImplementedError("QC parsing not implemented yet")
+        model_path = None
+        mesh_paths = []
+        cdmaterials = None
+        keyvalues = {}
+
+        print("Parsing QC file:", path)
+        with open(path) as f:
+            for line in f:
+                tokens = line.split()
+                for i, token in enumerate(tokens):
+                    if token.startswith("//"):
+                        tokens = tokens[:i]
+                        break
+
+                if not tokens:
+                    continue
+
+                if tokens[0].startswith("$"):
+                    key = tokens[0][1:]
+                    if len(tokens) == 1:
+                        value = True
+                    if len(tokens) == 2:
+                        value = tokens[1].strip("\"")
+                    else:
+                        value = tuple(t.strip("\"") for t in tokens[1:])
+                    keyvalues[key] = value
+
+                    if key.lower() == "model":
+                        mesh_paths.append(tokens[2].strip("\""))
+                    elif key.lower() == "modelname":
+                        assert type(value) is str
+                        model_path = value
+                    elif key.lower() == "cdmaterials":
+                        assert type(value) is str
+                        cdmaterials = value
+                else:
+                    print("WARNING - ignoring line:", line.strip())
+
+        print(model_path)
+        print(mesh_paths)
+        print(cdmaterials)
+        print(keyvalues)
+        if not all([model_path, mesh_paths, cdmaterials]):
+            raise ValueError("Couldn't parse all necessary data from the QC!")
+        return cls(model_path, mesh_paths, cdmaterials, _pre_existing_qc=path)
 
     @classmethod
     def from_mesh_file(cls, path: str):

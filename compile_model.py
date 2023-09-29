@@ -58,7 +58,7 @@ def find_compile_inputs_from_path(path: str) -> CompileInputs:
         if len(qcs) > 1:
             raise FileExistsError("Folder contains more than one QC file")
         elif len(qcs) == 1:
-            compile_inputs = CompileInputs.from_qc_file(qcs[0])
+            compile_inputs = CompileInputs.from_qc_file(os.path.join(path, qcs[0]))
         elif len(meshes) > 1:
             raise FileExistsError("Folder contains more than one mesh")
         else:
